@@ -25,53 +25,41 @@ Not(S) == (S+1)%2
    } 
    fair process (j \in {1..N-1})
     { J0: while (TRUE)
-            { await token[self] /= token[(self-1)];
+           either { await token[self] /= token[(self-1)];
               token[self] := token [(self-1)];
               up[self] := 1;
             }
-           { await token[self] = token[(self+1)] /\ up[self] = 1 /\ Not(up[(self+1)]) = 0;
+         or { await token[self] = token[(self+1)] /\ up[self] = 1 /\ Not(up[(self+1)]) = 1;
              up[self] := 0;  
             }
     }
 }
  ****************************************************************)
 \* BEGIN TRANSLATION
-VARIABLES token, up, pc
+VARIABLES token, up
 
-vars == << token, up, pc >>
+vars == << token, up >>
 
 ProcSet == ({0}) \cup ({N}) \cup ({1..N-1})
 
 Init == (* Global variables *)
         /\ token = [k \in 0..N |-> 0]
         /\ up = ([k \in 1..N |-> 0] /\ up[0] = 1)
-        /\ pc = [self \in ProcSet |-> CASE self \in {0} -> "I0"
-                                        [] self \in {N} -> "K0"
-                                        [] self \in {1..N-1} -> "J0"]
 
-I0(self) == /\ pc[self] = "I0"
-            /\ token[self] = token[(self+1)] /\ Not(up[(self+1)]) = 0
-            /\ token' = [token EXCEPT ![self] = Not(token[self])]
-            /\ pc' = [pc EXCEPT ![self] = "I0"]
-            /\ up' = up
+i(self) == /\ token[self] = token[(self+1)] /\ Not(up[(self+1)]) = 0
+           /\ token' = [token EXCEPT ![self] = Not(token[self])]
+           /\ up' = up
 
-i(self) == I0(self)
+k(self) == /\ token[self] /= token[(self-1)]
+           /\ token' = [token EXCEPT ![self] = token[(self-1)]]
+           /\ up' = up
 
-K0(self) == /\ pc[self] = "K0"
-            /\ token[self] /= token[(self-1)]
-            /\ token' = [token EXCEPT ![self] = token[(self-1)]]
-            /\ pc' = [pc EXCEPT ![self] = "K0"]
-            /\ up' = up
-
-k(self) == K0(self)
-
-J0(self) == /\ pc[self] = "J0"
-            /\ token[self] /= token[(self-1)]
-            /\ token' = [token EXCEPT ![self] = token [(self-1)]]
-            /\ pc' = [pc EXCEPT ![self] = "J0"]
-            /\ up' = up
-
-j(self) == J0(self)
+j(self) == \/ /\ token[self] /= token[(self-1)]
+              /\ token' = [token EXCEPT ![self] = token [(self-1)]]
+              /\ up' = [up EXCEPT ![self] = 1]
+           \/ /\ token[self] = token[(self+1)] /\ up[self] = 1 /\ Not(up[(self+1)]) = 0
+              /\ up' = [up EXCEPT ![self] = 0]
+              /\ token' = token
 
 Next == (\E self \in {0}: i(self))
            \/ (\E self \in {N}: k(self))
@@ -86,5 +74,5 @@ Spec == /\ Init /\ [][Next]_vars
 
 =============================================================================
 \* Modification History
-\* Last modified Thu Dec 10 11:12:30 EST 2015 by nishantr
+\* Last modified Thu Dec 10 15:01:06 EST 2015 by nishantr
 \* Created Wed Dec 09 17:41:40 EST 2015 by nishantr
